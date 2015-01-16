@@ -4,14 +4,17 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 
 import uk.ac.ebi.biostd.export.SubmissionPageMLFormatter;
-import uk.ac.ebi.biostd.model.PreparedSubmission;
 import uk.ac.ebi.biostd.pagetab.PageTabSyntaxParser2;
 import uk.ac.ebi.biostd.pagetab.ParserConfig;
 import uk.ac.ebi.biostd.pagetab.ParserException;
+import uk.ac.ebi.biostd.pagetab.ReferenceOccurrence;
+import uk.ac.ebi.biostd.pagetab.SectionRef;
+import uk.ac.ebi.biostd.pagetab.SubmissionInfo;
 import uk.ac.ebi.biostd.treelog.ErrorCounter;
 import uk.ac.ebi.biostd.treelog.ErrorCounterImpl;
 import uk.ac.ebi.biostd.treelog.LogNode;
@@ -91,7 +94,7 @@ public class Main
   
   SimpleLogNode topLn = new SimpleLogNode(Level.SUCCESS, "Parsing file: '"+infile.getAbsolutePath()+"'", ec);
   
-  List<PreparedSubmission> submissions = null;
+  List<SubmissionInfo> submissions = null;
   
   try
   {
@@ -122,11 +125,16 @@ public class Main
 
     try
     {
-     out = new PrintStream(lf);
+     out = new PrintStream(lf,"UTF-8");
     }
     catch(FileNotFoundException e)
     {
      System.err.println("Can't open log file '"+config.getLogFile()+"'");
+     System.exit(1);
+    }
+    catch(UnsupportedEncodingException e)
+    {
+     System.err.println("UTF-8 encoding is not supported");
      System.exit(1);
     }
     
@@ -138,6 +146,33 @@ public class Main
   
   if( topLn.getLevel() != Level.SUCCESS )
    System.exit(1);
+  
+  int gen=1;
+  
+  for( SubmissionInfo ps : submissions )
+  {
+   if( ps.getAccNoPrefix() != null  || ps.getAccNoSuffix() != null )
+    ps.getSubmission().setAccNo( (ps.getAccNoPrefix() != null?ps.getAccNoPrefix():"")+(gen++)+(ps.getAccNoSuffix() != null?ps.getAccNoSuffix():"") );
+   else if( ps.getSubmission().getAccNo() == null )
+    ps.getSubmission().setAccNo("SBM"+(gen++));
+    
+   
+   if( ps.getSec2genId() == null )
+    continue;
+   
+   for( SectionRef sr :  ps.getSec2genId() )
+   {
+    if( sr.getPrefix() != null  || sr.getSuffix() != null )
+     sr.getSection().setAccNo( (sr.getPrefix() != null?sr.getPrefix():"")+(gen++)+(sr.getSuffix() != null?sr.getSuffix():"") );
+   }
+   
+   if( ps.getReferenceOccurrences() == null )
+    continue;
+   
+   for( ReferenceOccurrence ro : ps.getReferenceOccurrences() )
+    ro.getRef().setValue( ro.getSection().getAccNo() );
+   
+  }
   
   PrintStream out =null;
   
@@ -154,11 +189,11 @@ public class Main
   
   SubmissionPageMLFormatter pageMLfmt = new SubmissionPageMLFormatter();
   
-  out.println("<Submissions>");
+  out.println("<submissions>");
   
   try
   {
-   for( PreparedSubmission ps : submissions )
+   for( SubmissionInfo ps : submissions )
     pageMLfmt.format(ps.getSubmission(), out);
   }
   catch(IOException e)
@@ -167,7 +202,7 @@ public class Main
    System.exit(1);
   }
   
-  out.println("</Submissions>");
+  out.println("</submissions>");
 
   out.close();
  }
@@ -183,7 +218,7 @@ public class Main
  private static void printLog(LogNode ln, PrintStream out, boolean printInfoNodes, List<Character> indent)
  {
   for( Character ch : indent )
-   System.out.print(ch);
+   out.print(ch);
   
 
   out.println(ln.getLevel().name()+": "+ln.getMessage());
