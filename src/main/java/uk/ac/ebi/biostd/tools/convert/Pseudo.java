@@ -1,4 +1,4 @@
-package uk.ac.ebi.biostd.pt2pml;
+package uk.ac.ebi.biostd.tools.convert;
 
 public class Pseudo
 {

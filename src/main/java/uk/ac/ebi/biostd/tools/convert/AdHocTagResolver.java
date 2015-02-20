@@ -1,4 +1,4 @@
-package uk.ac.ebi.biostd.pt2pml;
+package uk.ac.ebi.biostd.tools.convert;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -6,7 +6,7 @@ import java.util.Map;
 import uk.ac.ebi.biostd.authz.AccessTag;
 import uk.ac.ebi.biostd.authz.Classifier;
 import uk.ac.ebi.biostd.authz.Tag;
-import uk.ac.ebi.biostd.pagetab.TagResolver;
+import uk.ac.ebi.biostd.db.TagResolver;
 
 public class AdHocTagResolver implements TagResolver
 {

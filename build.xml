@@ -19,6 +19,7 @@
 
 		<maven:dependencies filesetId="maven.jewelcli">
 		  	<maven:dependency groupId="com.lexicalscope.jewelcli" artifactId="jewelcli" version="[0.8.9,)" />
+		  	<maven:dependency groupId="org.json" artifactId="json" version="20141113" />
 		</maven:dependencies>
 
 <!--
@@ -40,7 +41,7 @@
 			<fileset refid="maven.classpath"></fileset>
 	    </path>
 		
-		<javac  destdir="${build}" classpathref="master-classpath" source="1.7" target="1.7" debug="on" nowarn="on" includeAntRuntime="false">
+		<javac  destdir="${build}" classpathref="master-classpath" source="1.8" target="1.8" debug="on" nowarn="on" includeAntRuntime="false">
 			<src path="src/main/java"/>
 			<src path="${Model}/src/main/java"/>
 			<compilerarg value="-Xlint:deprecation"/>

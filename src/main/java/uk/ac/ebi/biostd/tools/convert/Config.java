@@ -1,4 +1,4 @@
-package uk.ac.ebi.biostd.pt2pml;
+package uk.ac.ebi.biostd.tools.convert;
 
 import java.util.List;
 
@@ -10,10 +10,19 @@ public interface Config
   @Unparsed
    public List<String> getFiles();
 
+  @Option( shortName="i", defaultValue="tab")
+  String getInputFormat();
+
+  @Option( shortName="o", defaultValue="xml")
+  String getOutputFormat();
+  
   @Option(shortName="l",defaultValue="-")
   public String getLogFile();
 
-  @Option(shortName="i")
+  @Option(shortName="d")
   public boolean getPrintInfoNodes();
+  
+  @Option(helpRequest = true,shortName="h")
+  boolean getHelp();
   
 }
