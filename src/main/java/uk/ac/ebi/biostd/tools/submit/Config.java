@@ -28,6 +28,12 @@ public interface Config
   @Option(shortName="d")
   public boolean getPrintInfoNodes();
   
+  @Option(shortName="o", defaultValue="new")
+  public String getOperation();
+
+  @Option(shortName="c", defaultValue="auto")
+  public String getCharset();
+  
   @Option(helpRequest = true,shortName="h")
   boolean getHelp();
   

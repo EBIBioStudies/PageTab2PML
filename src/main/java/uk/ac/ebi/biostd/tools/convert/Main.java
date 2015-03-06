@@ -5,9 +5,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
-import java.util.List;
 
+import uk.ac.ebi.biostd.in.PMDoc;
 import uk.ac.ebi.biostd.in.ParserConfig;
 import uk.ac.ebi.biostd.in.ParserException;
 import uk.ac.ebi.biostd.in.json.JSONReader;
@@ -15,10 +14,9 @@ import uk.ac.ebi.biostd.in.pagetab.PageTabSyntaxParser;
 import uk.ac.ebi.biostd.in.pagetab.ReferenceOccurrence;
 import uk.ac.ebi.biostd.in.pagetab.SectionOccurrence;
 import uk.ac.ebi.biostd.in.pagetab.SubmissionInfo;
-import uk.ac.ebi.biostd.model.Submission;
 import uk.ac.ebi.biostd.out.Formatter;
 import uk.ac.ebi.biostd.out.json.JSONFormatter;
-import uk.ac.ebi.biostd.out.pageml.SubmissionPageMLFormatter;
+import uk.ac.ebi.biostd.out.pageml.PageMLFormatter;
 import uk.ac.ebi.biostd.tools.util.Format;
 import uk.ac.ebi.biostd.tools.util.Utils;
 import uk.ac.ebi.biostd.treelog.ErrorCounter;
@@ -106,7 +104,7 @@ public class Main
    System.exit(1);
   }
 
-  List<SubmissionInfo> submissions = null;
+  PMDoc doc = null;
   ErrorCounter ec = new ErrorCounterImpl();
   SimpleLogNode topLn = new SimpleLogNode(Level.SUCCESS, "Parsing file: '" + infile.getAbsolutePath() + "'", ec);
 
@@ -120,7 +118,7 @@ public class Main
 
    try
    {
-    submissions = parser.parse(text, topLn);
+    doc = parser.parse(text, topLn);
    }
    catch(ParserException e)
    {
@@ -136,7 +134,7 @@ public class Main
 
    JSONReader jsnReader = new JSONReader(new AdHocTagResolver(), pc);
    
-   submissions = jsnReader.parse(text, topLn);
+   doc = jsnReader.parse(text, topLn);
   }
   
   SimpleLogNode.setLevels(topLn);
@@ -176,7 +174,7 @@ public class Main
    
 
    
-   Utils.printLog(topLn, out, config.getPrintInfoNodes() );
+   Utils.printLog(topLn, out, config.getPrintInfoNodes()? Level.DEBUG : Level.WARN );
    
   }
   
@@ -185,7 +183,7 @@ public class Main
   
   int gen=1;
   
-  for( SubmissionInfo ps : submissions )
+  for( SubmissionInfo ps : doc.getSubmissions() )
   {
    if( ps.getAccNoPrefix() != null  || ps.getAccNoSuffix() != null )
     ps.getSubmission().setAccNo( (ps.getAccNoPrefix() != null?ps.getAccNoPrefix():"")+(gen++)+(ps.getAccNoSuffix() != null?ps.getAccNoSuffix():"") );
@@ -225,19 +223,19 @@ public class Main
   Formatter outfmt = null;
   
   if( fmt == Format.XML )
-   outfmt = new SubmissionPageMLFormatter();
+   outfmt = new PageMLFormatter();
   else if( fmt == Format.JSON )
    outfmt = new JSONFormatter();
   
   
-  List<Submission> sbList = new ArrayList<Submission>( submissions.size() );
-  
-  for( SubmissionInfo ps : submissions )
-   sbList.add(ps.getSubmission());
-  
   try
   {
-   outfmt.format(sbList, out);
+   outfmt.header(doc.getHeaders(), out);
+   
+   for( SubmissionInfo ps : doc.getSubmissions() )
+    outfmt.format(ps.getSubmission(),out);
+   
+   outfmt.footer(out);
   }
   catch(IOException e)
   {
@@ -250,9 +248,11 @@ public class Main
  
  static void usage()
  {
-  System.err.println("Usage: java -jar PT2PML [-h] [-i] [-l logfile] <input file> <output file>");
+  System.err.println("Usage: java -jar PT2PML [-h] [-i in fmt] [-o out fmt] [-d] [-l logfile] <input file> <output file>");
   System.err.println("-h or --help print this help message");
-  System.err.println("-i or --printInfoNodes print info messages along with errors and warnings");
+  System.err.println("-i or --inputFormat input file format. Can be json or tab");
+  System.err.println("-o or --outputFormat output file format. Can be json or xml");
+  System.err.println("-d or --printInfoNodes print info messages along with errors and warnings");
   System.err.println("-l or --logFile defines log file. By default stdout");
   System.err.println("<input file> PagaTab input file. Supported UCS-2 (UTF-16), UTF-8 CSV or TSV or MS Excel XML files");
   System.err.println("<output file> XML output file. '-' means output to stdout");

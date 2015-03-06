@@ -33,6 +33,8 @@ public class Main
  
  static final String authEndpoint = "auth/signin";
  static final String submitEndpoint = "submit/create";
+ static final String updateEndpoint = "submit/update";
+ static final String deleteEndpoint = "submit/delete";
 
  public static void main(String[] args)
  {
@@ -60,8 +62,30 @@ public class Main
    usage();
    System.exit(1);
   }
-
-  File infile = new File(config.getFiles().get(0));
+  
+  File infile = null;
+  String delAccNo = null;
+  boolean update = false;
+  
+  if( "update".equalsIgnoreCase(config.getOperation() ) )
+   update=true;
+  else if("delete".equalsIgnoreCase(config.getOperation()) )
+   delAccNo = config.getFiles().get(0);
+  else if( ! "new".equalsIgnoreCase(config.getOperation() ) )
+  {
+   System.err.println("Invalid operation. Valid are: new, update or delete");
+   System.exit(1);
+  }
+   
+  if( delAccNo == null )
+   infile = new File(config.getFiles().get(0));
+  else
+  {
+   String sess = login(config);
+   LogNode topLn = delete(delAccNo, sess, config);
+   printLog(topLn, config);
+   return;
+  }
 
   if(!infile.canRead())
   {
@@ -87,7 +111,24 @@ public class Main
 
   try
   {
-   text = FileUtil.readUnicodeFile(infile);
+   if( "auto".equalsIgnoreCase(config.getCharset()) )
+    text = FileUtil.readUnicodeFile(infile);
+   else
+   {
+    Charset cs = null;
+    
+    try
+    {
+     cs = Charset.forName(config.getCharset());
+    }
+    catch( Throwable t )
+    {
+     System.err.println("Invalid charset: "+config.getCharset());
+     System.exit(1);
+    }
+    
+    text = FileUtil.readFile(infile,cs);
+   }
   }
   catch(IOException e)
   {
@@ -95,72 +136,17 @@ public class Main
    System.exit(1);
   }
 
-/*  
-  ErrorCounter ec = new ErrorCounterImpl();
-  SimpleLogNode topLn = new SimpleLogNode(Level.SUCCESS, "Submitting file: '" + infile.getAbsolutePath() + "'", ec);
-
-  if(fmt != Format.JSON)
-  {
-   List<SubmissionInfo> submissions = null;
-
-   LogNode ln = topLn.branch("Parsing Page-Tab file");
-
-   if(config.getInputFormat().equalsIgnoreCase("tab"))
-   {
-    ParserConfig pc = new ParserConfig();
-
-    pc.setMultipleSubmissions(true);
-
-    PageTabSyntaxParser parser = new PageTabSyntaxParser(new AdHocTagResolver(), pc);
-
-    try
-    {
-     submissions = parser.parse(text, ln);
-    }
-    catch(ParserException e)
-    {
-     System.err.println("Can't parse Page-Tab file: " + e.getMessage());
-     System.exit(1);
-    }
-   }
-
-   if(ec.getErrorCounter() != 0)
-   {
-    printLog(topLn, config);
-    System.exit(1);
-   }
-
-   List<Submission> sbList = new ArrayList<Submission>(submissions.size());
-
-   for(SubmissionInfo ps : submissions)
-    sbList.add(ps.getSubmission());
-
-   JSONFormatter jsFmt = new JSONFormatter();
-
-   StringBuilder sb = new StringBuilder();
-
-   try
-   {
-    jsFmt.format(sbList, sb);
-   }
-   catch(IOException e)
-   {
-   }
-
-   text = sb.toString();
-  }
-*/  
 
   String sess = login(config);
 
-  LogNode topLn = submit(text, fmt, sess, config);
-  
+  LogNode topLn = submit(text, fmt, sess, config, update);
+
   printLog(topLn, config);
 
  }
 
  
- private static LogNode submit(String text, Format fmt, String sess, Config config)
+ private static LogNode delete(String delAccNo, String sess, Config config)
  {
   String appUrl = config.getServer();
 
@@ -171,7 +157,59 @@ public class Main
 
   try
   {
-   loginURL = new URL(appUrl + submitEndpoint + "?"+SessionKey+"="+URLEncoder.encode(sess, "utf-8"));
+   loginURL = new URL(appUrl + deleteEndpoint + "?id="+delAccNo+"&"+SessionKey+"="+URLEncoder.encode(sess, "utf-8"));
+  }
+  catch(MalformedURLException e)
+  {
+   System.err.println("Invalid server URL: " + config.getServer());
+   System.exit(1);
+  }
+  catch(UnsupportedEncodingException e)
+  {
+  }
+
+  try
+  {
+   HttpURLConnection conn = (HttpURLConnection) loginURL.openConnection();
+   
+   String resp = StringUtils.readFully((InputStream)conn.getContent(), Charset.forName("utf-8"));
+
+   conn.disconnect();
+
+   try
+   {
+    return JSON2Log.convert(resp);
+   }
+   catch(ConvertException e)
+   {
+    System.err.println("Invalid server response. JSON log expected");
+    System.exit(1);
+   }
+   
+   
+  }
+  catch(IOException e)
+  {
+   System.err.println("Connection to server '"+config.getServer()+"' failed: "+e.getMessage());
+   System.exit(1);
+  }
+  
+  return null;
+ }
+
+
+ private static LogNode submit(String text, Format fmt, String sess, Config config, boolean update)
+ {
+  String appUrl = config.getServer();
+
+  if(!appUrl.endsWith("/"))
+   appUrl = appUrl + "/";
+  
+  URL loginURL = null;
+
+  try
+  {
+   loginURL = new URL(appUrl + (update? updateEndpoint : submitEndpoint) + "?"+SessionKey+"="+URLEncoder.encode(sess, "utf-8"));
   }
   catch(MalformedURLException e)
   {
@@ -187,9 +225,9 @@ public class Main
    HttpURLConnection conn = (HttpURLConnection) loginURL.openConnection();
    
    if( fmt == Format.JSON )
-    conn.setRequestProperty("Content-Type", "application/json");
+    conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
    else if ( fmt == Format.PAGETAB )
-    conn.setRequestProperty("Content-Type", "application/pagetab");
+    conn.setRequestProperty("Content-Type", "application/pagetab; charset=utf-8");
    else
    {
     System.err.println("Unsupported format: "+fmt.name());
@@ -311,6 +349,9 @@ public class Main
 
  static void printLog(LogNode topLn, Config config)
  {
+  if( topLn == null )
+   return;
+  
   SimpleLogNode.setLevels(topLn);
 
   if(topLn.getLevel() != Level.SUCCESS || config.getPrintInfoNodes())
@@ -346,14 +387,26 @@ public class Main
 
    }
 
-   Utils.printLog(topLn, out, config.getPrintInfoNodes());
+   Utils.printLog(topLn, out, config.getPrintInfoNodes()? Level.DEBUG : Level.WARN );
 
    if(out != System.err)
     out.close();
   }
  }
 
- private static void usage()
+ static void usage()
  {
+  System.err.println("Usage: java -jar PTSubmit -o new|update|delete -s serverURL -u user -p [password] [-h] [-i in fmt] [-c charset] [-d] [-l logfile] <input file|AccNo>");
+  System.err.println("-h or --help print this help message");
+  System.err.println("-i or --inputFormat input file format. Can be json or tab");
+  System.err.println("-c or --charset file charset");
+  System.err.println("-s or --server server endpoint URL");
+  System.err.println("-u or --user user login");
+  System.err.println("-p or --password user password");
+  System.err.println("-o or --operation requested operation. Can be new, update or delete");
+  System.err.println("-d or --printInfoNodes print info messages along with errors and warnings");
+  System.err.println("-l or --logFile defines log file. By default stdout");
+  System.err.println("<input file> PagaTab input file. Supported UCS-2 (UTF-16), UTF-8 CSV or TSV or MS Excel XML files");
+  System.err.println("<output file> XML output file. '-' means output to stdout");
  }
 }
