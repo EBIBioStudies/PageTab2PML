@@ -10,8 +10,10 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.1</version>
         <configuration>
-          <source/>
-          <target/>
+				<configuration>
+					<source>1.8</source>
+					<target>1.8</target>
+				</configuration>
         </configuration>
       </plugin>
     </plugins>
@@ -28,11 +30,34 @@
       <artifactId>BioStdCoreModel</artifactId>
       <version>0.0.2</version>
    	</dependency>
+
+  	<dependency>
+  	  <groupId>org.apache.poi</groupId>
+      <artifactId>poi</artifactId>
+      <version>[3.11,)</version>
+   	</dependency>
+
+  	<dependency>
+  	  <groupId>org.apache.poi</groupId>
+      <artifactId>poi-ooxml</artifactId>
+      <version>[3.11,)</version>
+   	</dependency>
+
+	<dependency>
+		<groupId>org.apache.odftoolkit</groupId>
+		<artifactId>simple-odf</artifactId>
+		<version>0.7-incubating</version>
+	</dependency>
   	
   </dependencies>
 
 	<repositories>
-
+		
+		<repository>
+			<id>fg-artif</id>
+			<name>FG atrifactory</name>
+			<url>http://coconut.ebi.ac.uk:8081/artifactory/local-repo</url>
+		</repository>
 
 		<repository>
 			<id>ebi-repo</id>
@@ -50,5 +75,5 @@
 		</repository>
 
 	</repositories>
-	
+
 </project>

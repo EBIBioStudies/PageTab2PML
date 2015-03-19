@@ -7,10 +7,6 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 
 import uk.ac.ebi.biostd.in.PMDoc;
-import uk.ac.ebi.biostd.in.ParserConfig;
-import uk.ac.ebi.biostd.in.ParserException;
-import uk.ac.ebi.biostd.in.json.JSONReader;
-import uk.ac.ebi.biostd.in.pagetab.PageTabSyntaxParser;
 import uk.ac.ebi.biostd.in.pagetab.ReferenceOccurrence;
 import uk.ac.ebi.biostd.in.pagetab.SectionOccurrence;
 import uk.ac.ebi.biostd.in.pagetab.SubmissionInfo;
@@ -23,7 +19,6 @@ import uk.ac.ebi.biostd.treelog.ErrorCounter;
 import uk.ac.ebi.biostd.treelog.ErrorCounterImpl;
 import uk.ac.ebi.biostd.treelog.LogNode.Level;
 import uk.ac.ebi.biostd.treelog.SimpleLogNode;
-import uk.ac.ebi.biostd.util.FileUtil;
 
 import com.lexicalscope.jewel.cli.ArgumentValidationException;
 import com.lexicalscope.jewel.cli.CliFactory;
@@ -92,50 +87,59 @@ public class Main
    System.exit(1);
   }
 
-  String text = null;
   
-  try
+  String inputFormat = config.getInputFormat();
+
+  if( "auto".equalsIgnoreCase(inputFormat) )
   {
-   text = FileUtil.readUnicodeFile(infile);
+   String ext = null;
+   
+   int pos = infile.getName().lastIndexOf('.');
+   
+   if( pos >=0 )
+    ext = infile.getName().substring(pos+1);
+   
+   if( "xlsx".equalsIgnoreCase(ext) )
+    inputFormat = "xlsx";
+   else if( "xls".equalsIgnoreCase(ext) )
+    inputFormat = "xls";
+   else if( "json".equalsIgnoreCase(ext) )
+    inputFormat = "json";
+   else if( "ods".equalsIgnoreCase(ext) )
+    inputFormat = "ods";
+   else if( "csv".equalsIgnoreCase(ext) )
+    inputFormat = "csv";
+   else if( "tsv".equalsIgnoreCase(ext) )
+    inputFormat = "tsv";
+   else
+    inputFormat = "csvtsv";
   }
-  catch(IOException e)
-  {
-   System.err.println("Input file read ERROR: "+e.getMessage());
-   System.exit(1);
-  }
+  
 
   PMDoc doc = null;
   ErrorCounter ec = new ErrorCounterImpl();
   SimpleLogNode topLn = new SimpleLogNode(Level.SUCCESS, "Parsing file: '" + infile.getAbsolutePath() + "'", ec);
 
-  if( config.getInputFormat().equalsIgnoreCase("tab") )
-  {
-   ParserConfig pc = new ParserConfig();
+  
 
-   pc.setMultipleSubmissions(true);
+  
+  
+  if( "xlsx".equals(inputFormat) ||  "xls".equals(inputFormat) )
+   doc = XLParse.parse(infile,topLn);
+  else if( "ods".equals(inputFormat) )
+   doc = ODSParse.parse(infile,topLn);
+  else if( "json".equals(inputFormat) )
+   doc = JSONParse.parse(infile, config.getCharset(), topLn);
+  else if( "cvs".equals(inputFormat) )
+   doc = CVSTVSParse.parse(infile, config.getCharset(), ',', topLn);
+  else if( "tsv".equals(inputFormat) )
+   doc = CVSTVSParse.parse(infile, config.getCharset(), '\t', topLn);
+  else if( "csvtsv".equals(inputFormat) )
+   doc = CVSTVSParse.parse(infile, config.getCharset(), '\0', topLn);
 
-   PageTabSyntaxParser parser = new PageTabSyntaxParser(new AdHocTagResolver(), pc);
-
-   try
-   {
-    doc = parser.parse(text, topLn);
-   }
-   catch(ParserException e)
-   {
-    System.err.println("Can't parse Page-Tab file: " + e.getMessage());
-    System.exit(1);
-   }
-  }
-  else if( config.getInputFormat().equalsIgnoreCase("json") )
-  {
-   ParserConfig pc = new ParserConfig();
-
-   pc.setMultipleSubmissions(true);
-
-   JSONReader jsnReader = new JSONReader(new AdHocTagResolver(), pc);
-   
-   doc = jsnReader.parse(text, topLn);
-  }
+  if( doc == null )
+   System.exit(1);
+  
   
   SimpleLogNode.setLevels(topLn);
   
@@ -185,27 +189,39 @@ public class Main
   
   for( SubmissionInfo ps : doc.getSubmissions() )
   {
-   if( ps.getAccNoPrefix() != null  || ps.getAccNoSuffix() != null )
-    ps.getSubmission().setAccNo( (ps.getAccNoPrefix() != null?ps.getAccNoPrefix():"")+(gen++)+(ps.getAccNoSuffix() != null?ps.getAccNoSuffix():"") );
-   else if( ps.getSubmission().getAccNo() == null )
-    ps.getSubmission().setAccNo("SBM"+(gen++));
-    
+   if( config.getGenAcc() )
+   {
+    if(ps.getAccNoPrefix() != null || ps.getAccNoSuffix() != null)
+     ps.getSubmission().setAccNo(
+       (ps.getAccNoPrefix() != null ? ps.getAccNoPrefix() : "") + (gen++) + (ps.getAccNoSuffix() != null ? ps.getAccNoSuffix() : ""));
+    else if(ps.getSubmission().getAccNo() == null)
+     ps.getSubmission().setAccNo("SBM" + (gen++));
+   }
+   else
+    ps.getSubmission().setAccNo( ps.getAccNoOriginal() );
    
    if( ps.getGlobalSections() == null )
     continue;
    
    for( SectionOccurrence sr :  ps.getGlobalSections() )
    {
-    if( sr.getPrefix() != null  || sr.getSuffix() != null )
-     sr.getSection().setAccNo( (sr.getPrefix() != null?sr.getPrefix():"")+(gen++)+(sr.getSuffix() != null?sr.getSuffix():"") );
+    if( config.getGenAcc() )
+    {
+     if( sr.getPrefix() != null  || sr.getSuffix() != null )
+      sr.getSection().setAccNo( (sr.getPrefix() != null?sr.getPrefix():"")+(gen++)+(sr.getSuffix() != null?sr.getSuffix():"") );
+    }
+    else
+     sr.getSection().setAccNo( sr.getOriginalAccNo() );
    }
    
    if( ps.getReferenceOccurrences() == null )
     continue;
    
-   for( ReferenceOccurrence ro : ps.getReferenceOccurrences() )
-    ro.getRef().setValue( ro.getSection().getAccNo() );
-   
+   if( config.getGenAcc() )
+   {
+    for( ReferenceOccurrence ro : ps.getReferenceOccurrences() )
+     ro.getRef().setValue( ro.getSection().getAccNo() );
+   }
   }
   
   PrintStream out =null;

@@ -10,7 +10,7 @@ public interface Config
   @Unparsed
    public List<String> getFiles();
 
-  @Option( shortName="i", defaultValue="tab")
+  @Option( shortName="i", defaultValue="auto")
   String getInputFormat();
 
   @Option( shortName="o", defaultValue="xml")
@@ -21,6 +21,12 @@ public interface Config
 
   @Option(shortName="d")
   public boolean getPrintInfoNodes();
+
+  @Option(shortName="g")
+  public boolean getGenAcc();
+  
+  @Option(shortName="c", defaultValue="utf-8")
+  public String getCharset();
   
   @Option(helpRequest = true,shortName="h")
   boolean getHelp();
