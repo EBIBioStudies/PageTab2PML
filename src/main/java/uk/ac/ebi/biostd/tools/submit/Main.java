@@ -96,16 +96,43 @@ public class Main
 
   Format fmt = null;
 
-  if(config.getInputFormat().equalsIgnoreCase("tab"))
-   fmt = Format.PAGETAB;
-  else if(config.getInputFormat().equalsIgnoreCase("json"))
-   fmt = Format.JSON;
+  if( "auto".equalsIgnoreCase( config.getInputFormat() ) )
+  {
+   String ext = null;
+   
+   int pos = infile.getName().lastIndexOf('.');
+   
+   if( pos >=0 )
+    ext = infile.getName().substring(pos+1);
+   
+   if( "xlsx".equalsIgnoreCase(ext) )
+    fmt = Format.xlsx;
+   else if( "xls".equalsIgnoreCase(ext) )
+    fmt = Format.xls;
+   else if( "json".equalsIgnoreCase(ext) )
+    fmt = Format.json;
+   else if( "ods".equalsIgnoreCase(ext) )
+    fmt = Format.ods;
+   else if( "csv".equalsIgnoreCase(ext) )
+    fmt = Format.csv;
+   else if( "tsv".equalsIgnoreCase(ext) )
+    fmt = Format.tsv;
+   else
+    fmt = Format.csvtsv;
+  }
   else
   {
-   System.err.println("Invalid input format '" + config.getInputFormat() + "'");
-   usage();
-   System.exit(1);
+   try
+   {
+    fmt = Format.valueOf(config.getInputFormat());
+   }
+   catch(Exception e)
+   {
+    System.err.println("Invalid input format: '"+config.getInputFormat()+"'");
+    System.exit(1);
+   }
   }
+  
 
   String text = null;
 
@@ -139,7 +166,7 @@ public class Main
 
   String sess = login(config);
 
-  LogNode topLn = submit(text, fmt, sess, config, update);
+  LogNode topLn = submit(infile, fmt, sess, config, update);
 
   printLog(topLn, config);
 
@@ -198,7 +225,7 @@ public class Main
  }
 
 
- private static LogNode submit(String text, Format fmt, String sess, Config config, boolean update)
+ private static LogNode submit(File infile, Format fmt, String sess, Config config, boolean update)
  {
   String appUrl = config.getServer();
 
@@ -224,26 +251,46 @@ public class Main
   {
    HttpURLConnection conn = (HttpURLConnection) loginURL.openConnection();
    
-   if( fmt == Format.JSON )
-    conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-   else if ( fmt == Format.PAGETAB )
-    conn.setRequestProperty("Content-Type", "application/pagetab; charset=utf-8");
-   else
-   {
-    System.err.println("Unsupported format: "+fmt.name());
-    System.exit(1);
-   }
    
    conn.setDoOutput(true);
    conn.setRequestMethod("POST");
    
-   byte[] postData   = text.getBytes( Charset.forName( "UTF-8" ));
+   if( fmt == Format.json || fmt == Format.csv || fmt == Format.tsv || fmt == Format.csvtsv )
+   {
+    conn.setRequestProperty("Content-Type", fmt.getContentType()+"; charset=utf-8");
    
-   conn.setRequestProperty("Content-Length", String.valueOf(postData.length));
+    Charset cs = null;
+    
+    try
+    {
+     cs = Charset.forName(config.getCharset());
+    }
+    catch( Throwable t )
+    {
+     System.err.println("Invalid charset: "+config.getCharset());
+     System.exit(1);
+    }
+    
+    String txt = FileUtil.readFile(infile, cs);
+    
+    byte[] postData   = txt.getBytes( Charset.forName( "UTF-8" ));
+    
+    conn.setRequestProperty("Content-Length", String.valueOf(postData.length));
+    conn.getOutputStream().write( postData );
+    conn.getOutputStream().close();
 
-   conn.getOutputStream().write( postData );
+   }
+   else
+   {
+    conn.setRequestProperty("Content-Type",fmt.getContentType());
+    
+    byte[] data = FileUtil.readBinFile(infile);
    
-   conn.getOutputStream().close();
+    conn.setRequestProperty("Content-Length", String.valueOf(data.length));
+    conn.getOutputStream().write( data );
+    conn.getOutputStream().close();
+   }
+
    
    String resp = StringUtils.readFully((InputStream)conn.getContent(), Charset.forName("utf-8"));
 
@@ -398,8 +445,8 @@ public class Main
  {
   System.err.println("Usage: java -jar PTSubmit -o new|update|delete -s serverURL -u user -p [password] [-h] [-i in fmt] [-c charset] [-d] [-l logfile] <input file|AccNo>");
   System.err.println("-h or --help print this help message");
-  System.err.println("-i or --inputFormat input file format. Can be json or tab");
-  System.err.println("-c or --charset file charset");
+  System.err.println("-i or --inputFormat input file format. Can be json,tsv,csv,xls,xlsx,ods. Default is auto (by file extension)");
+  System.err.println("-c or --charset file charset (for text files only)");
   System.err.println("-s or --server server endpoint URL");
   System.err.println("-u or --user user login");
   System.err.println("-p or --password user password");

@@ -77,9 +77,9 @@ public class Main
   Format fmt = null;
   
   if( config.getOutputFormat().equalsIgnoreCase("xml") )
-   fmt=Format.XML;
+   fmt=Format.xml;
   else if( config.getOutputFormat().equalsIgnoreCase("json") )
-   fmt=Format.JSON;
+   fmt=Format.json;
   else
   {
    System.err.println("Invalid output formatl '"+config.getOutputFormat()+"'");
@@ -90,7 +90,7 @@ public class Main
   
   String inputFormat = config.getInputFormat();
 
-  if( "auto".equalsIgnoreCase(inputFormat) )
+  if( "auto".equals( config.getInputFormat() ) )
   {
    String ext = null;
    
@@ -114,6 +114,7 @@ public class Main
    else
     inputFormat = "csvtsv";
   }
+
   
 
   PMDoc doc = null;
@@ -238,9 +239,9 @@ public class Main
   
   Formatter outfmt = null;
   
-  if( fmt == Format.XML )
+  if( fmt == Format.xml )
    outfmt = new PageMLFormatter();
-  else if( fmt == Format.JSON )
+  else if( fmt == Format.json )
    outfmt = new JSONFormatter();
   
   

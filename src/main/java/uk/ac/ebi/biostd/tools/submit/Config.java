@@ -10,7 +10,7 @@ public interface Config
   @Unparsed
    public List<String> getFiles();
 
-  @Option( shortName="i", defaultValue="tab")
+  @Option( shortName="i", defaultValue="auto")
   String getInputFormat();
   
   @Option( shortName="u")
@@ -31,7 +31,7 @@ public interface Config
   @Option(shortName="o", defaultValue="new")
   public String getOperation();
 
-  @Option(shortName="c", defaultValue="auto")
+  @Option(shortName="c", defaultValue="utf-8")
   public String getCharset();
   
   @Option(helpRequest = true,shortName="h")
