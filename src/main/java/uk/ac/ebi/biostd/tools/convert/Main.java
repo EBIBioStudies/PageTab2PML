@@ -13,12 +13,12 @@ import uk.ac.ebi.biostd.in.pagetab.SubmissionInfo;
 import uk.ac.ebi.biostd.out.Formatter;
 import uk.ac.ebi.biostd.out.json.JSONFormatter;
 import uk.ac.ebi.biostd.out.pageml.PageMLFormatter;
-import uk.ac.ebi.biostd.tools.util.Format;
 import uk.ac.ebi.biostd.tools.util.Utils;
 import uk.ac.ebi.biostd.treelog.ErrorCounter;
 import uk.ac.ebi.biostd.treelog.ErrorCounterImpl;
 import uk.ac.ebi.biostd.treelog.LogNode.Level;
 import uk.ac.ebi.biostd.treelog.SimpleLogNode;
+import uk.ac.ebi.biostd.util.DataFormat;
 
 import com.lexicalscope.jewel.cli.ArgumentValidationException;
 import com.lexicalscope.jewel.cli.CliFactory;
@@ -74,12 +74,12 @@ public class Main
    System.exit(1);
   }
   
-  Format fmt = null;
+  DataFormat fmt = null;
   
   if( config.getOutputFormat().equalsIgnoreCase("xml") )
-   fmt=Format.xml;
+   fmt=DataFormat.xml;
   else if( config.getOutputFormat().equalsIgnoreCase("json") )
-   fmt=Format.json;
+   fmt=DataFormat.json;
   else
   {
    System.err.println("Invalid output formatl '"+config.getOutputFormat()+"'");
@@ -223,25 +223,56 @@ public class Main
     for( ReferenceOccurrence ro : ps.getReferenceOccurrences() )
      ro.getRef().setValue( ro.getSection().getAccNo() );
    }
+
+/*   
+   boolean hasTitle = false;
+   for( SectionAttribute satt : ps.getRootSectionOccurance().getSection().getAttributes() )
+   {
+    if(satt.getName().equals("Title"))
+    {
+     hasTitle = true;
+     break;
+    }
+   }
+   
+   if( ! hasTitle )
+   {
+    for( SubmissionAttribute sbAtt : ps.getSubmission().getAttributes() )
+    {
+     if(sbAtt.getName().equals("Title"))
+     {
+      ps.getRootSectionOccurance().getSection().getAttributes().add(0, new SectionAttribute("Title", sbAtt.getValue()));
+      break;
+     }
+    }
+    
+   }
+   
+*/
   }
   
   PrintStream out =null;
   
   try
   {
-   out = "-".equals( config.getFiles().get(1) )? System.out : new PrintStream( outfile );
+   out = "-".equals( config.getFiles().get(1) )? System.out : new PrintStream( outfile, "utf-8" );
   }
   catch(FileNotFoundException e)
   {
    System.err.println("Can't open output file '"+outfile.getAbsolutePath()+"': "+e.getMessage());
    System.exit(1);
   }
+  catch(UnsupportedEncodingException e)
+  {
+   System.err.println("System doesn't support UTF-8 encoding");
+   System.exit(1);
+  }
   
   Formatter outfmt = null;
   
-  if( fmt == Format.xml )
+  if( fmt == DataFormat.xml )
    outfmt = new PageMLFormatter();
-  else if( fmt == Format.json )
+  else if( fmt == DataFormat.json )
    outfmt = new JSONFormatter();
   
   
@@ -249,8 +280,17 @@ public class Main
   {
    outfmt.header(doc.getHeaders(), out);
    
+   boolean first = true;
+   
    for( SubmissionInfo ps : doc.getSubmissions() )
+   {
+    if( ! first )
+     outfmt.separator(out);
+    else
+     first = false;
+    
     outfmt.format(ps.getSubmission(),out);
+   }
    
    outfmt.footer(out);
   }

@@ -12,13 +12,13 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 
-import uk.ac.ebi.biostd.tools.util.Format;
 import uk.ac.ebi.biostd.tools.util.Utils;
 import uk.ac.ebi.biostd.treelog.ConvertException;
 import uk.ac.ebi.biostd.treelog.JSON2Log;
 import uk.ac.ebi.biostd.treelog.LogNode;
 import uk.ac.ebi.biostd.treelog.LogNode.Level;
 import uk.ac.ebi.biostd.treelog.SimpleLogNode;
+import uk.ac.ebi.biostd.util.DataFormat;
 import uk.ac.ebi.biostd.util.FileUtil;
 import uk.ac.ebi.biostd.util.StringUtils;
 
@@ -94,7 +94,7 @@ public class Main
    System.exit(1);
   }
 
-  Format fmt = null;
+  DataFormat fmt = null;
 
   if( "auto".equalsIgnoreCase( config.getInputFormat() ) )
   {
@@ -106,25 +106,25 @@ public class Main
     ext = infile.getName().substring(pos+1);
    
    if( "xlsx".equalsIgnoreCase(ext) )
-    fmt = Format.xlsx;
+    fmt = DataFormat.xlsx;
    else if( "xls".equalsIgnoreCase(ext) )
-    fmt = Format.xls;
+    fmt = DataFormat.xls;
    else if( "json".equalsIgnoreCase(ext) )
-    fmt = Format.json;
+    fmt = DataFormat.json;
    else if( "ods".equalsIgnoreCase(ext) )
-    fmt = Format.ods;
+    fmt = DataFormat.ods;
    else if( "csv".equalsIgnoreCase(ext) )
-    fmt = Format.csv;
+    fmt = DataFormat.csv;
    else if( "tsv".equalsIgnoreCase(ext) )
-    fmt = Format.tsv;
+    fmt = DataFormat.tsv;
    else
-    fmt = Format.csvtsv;
+    fmt = DataFormat.csvtsv;
   }
   else
   {
    try
    {
-    fmt = Format.valueOf(config.getInputFormat());
+    fmt = DataFormat.valueOf(config.getInputFormat());
    }
    catch(Exception e)
    {
@@ -225,7 +225,7 @@ public class Main
  }
 
 
- private static LogNode submit(File infile, Format fmt, String sess, Config config, boolean update)
+ private static LogNode submit(File infile, DataFormat fmt, String sess, Config config, boolean update)
  {
   String appUrl = config.getServer();
 
@@ -255,7 +255,7 @@ public class Main
    conn.setDoOutput(true);
    conn.setRequestMethod("POST");
    
-   if( fmt == Format.json || fmt == Format.csv || fmt == Format.tsv || fmt == Format.csvtsv )
+   if( fmt == DataFormat.json || fmt == DataFormat.csv || fmt == DataFormat.tsv || fmt == DataFormat.csvtsv )
    {
     conn.setRequestProperty("Content-Type", fmt.getContentType()+"; charset=utf-8");
    
