@@ -10,7 +10,10 @@ import uk.ac.ebi.biostd.in.PMDoc;
 import uk.ac.ebi.biostd.in.pagetab.ReferenceOccurrence;
 import uk.ac.ebi.biostd.in.pagetab.SectionOccurrence;
 import uk.ac.ebi.biostd.in.pagetab.SubmissionInfo;
-import uk.ac.ebi.biostd.out.Formatter;
+import uk.ac.ebi.biostd.out.DocumentFormatter;
+import uk.ac.ebi.biostd.out.cell.CellFormatter;
+import uk.ac.ebi.biostd.out.cell.XLSXCellStream;
+import uk.ac.ebi.biostd.out.cell.XSVCellStream;
 import uk.ac.ebi.biostd.out.json.JSONFormatter;
 import uk.ac.ebi.biostd.out.pageml.PageMLFormatter;
 import uk.ac.ebi.biostd.tools.util.Utils;
@@ -80,6 +83,12 @@ public class Main
    fmt=DataFormat.xml;
   else if( config.getOutputFormat().equalsIgnoreCase("json") )
    fmt=DataFormat.json;
+  else if( config.getOutputFormat().equalsIgnoreCase("tsv") )
+   fmt=DataFormat.tsv;
+  else if( config.getOutputFormat().equalsIgnoreCase("csv") )
+   fmt=DataFormat.csv;
+  else if( config.getOutputFormat().equalsIgnoreCase("xlsx") )
+   fmt=DataFormat.xlsx;
   else
   {
    System.err.println("Invalid output formatl '"+config.getOutputFormat()+"'");
@@ -122,22 +131,35 @@ public class Main
   SimpleLogNode topLn = new SimpleLogNode(Level.SUCCESS, "Parsing file: '" + infile.getAbsolutePath() + "'", ec);
 
   
-
+  if( (! infile.exists() ) || ( ! infile.canRead() ) )
+  {
+   System.err.println("Input file '"+infile.getAbsolutePath()+"' doesn't exist or not readable");
+   System.exit(1);
+  }
   
-  
-  if( "xlsx".equals(inputFormat) ||  "xls".equals(inputFormat) )
-   doc = XLParse.parse(infile,topLn);
-  else if( "ods".equals(inputFormat) )
-   doc = ODSParse.parse(infile,topLn);
-  else if( "json".equals(inputFormat) )
-   doc = JSONParse.parse(infile, config.getCharset(), topLn);
-  else if( "cvs".equals(inputFormat) )
-   doc = CVSTVSParse.parse(infile, config.getCharset(), ',', topLn);
-  else if( "tsv".equals(inputFormat) )
-   doc = CVSTVSParse.parse(infile, config.getCharset(), '\t', topLn);
-  else if( "csvtsv".equals(inputFormat) )
-   doc = CVSTVSParse.parse(infile, config.getCharset(), '\0', topLn);
+  try
+  {
 
+   if("xlsx".equals(inputFormat) || "xls".equals(inputFormat))
+    doc = XLParse.parse(infile, topLn);
+   else if("ods".equals(inputFormat))
+    doc = ODSParse.parse(infile, topLn);
+   else if("json".equals(inputFormat))
+    doc = JSONParse.parse(infile, config.getCharset(), topLn);
+   else if("cvs".equals(inputFormat))
+    doc = CVSTVSParse.parse(infile, config.getCharset(), ',', topLn);
+   else if("tsv".equals(inputFormat))
+    doc = CVSTVSParse.parse(infile, config.getCharset(), '\t', topLn);
+   else if("csvtsv".equals(inputFormat))
+    doc = CVSTVSParse.parse(infile, config.getCharset(), '\0', topLn);
+
+  }
+  catch( Throwable t )
+  {
+   System.err.println("Input file '"+infile.getAbsolutePath()+"' parsing error: "+t.getMessage());
+   System.exit(1);
+  }
+  
   if( doc == null )
    System.exit(1);
   
@@ -212,7 +234,7 @@ public class Main
       sr.getSection().setAccNo( (sr.getPrefix() != null?sr.getPrefix():"")+(gen++)+(sr.getSuffix() != null?sr.getSuffix():"") );
     }
     else
-     sr.getSection().setAccNo( sr.getOriginalAccNo() );
+     sr.getSection().setAccNo( sr.getOriginalAccNo().substring(1) );
    }
    
    if( ps.getReferenceOccurrences() == null )
@@ -253,46 +275,49 @@ public class Main
   
   PrintStream out =null;
   
-  try
+  if(  fmt != DataFormat.xlsx  )
   {
-   out = "-".equals( config.getFiles().get(1) )? System.out : new PrintStream( outfile, "utf-8" );
+   try
+   {
+    out = "-".equals(config.getFiles().get(1)) ? System.out : new PrintStream(outfile, "utf-8");
+   }
+   catch(FileNotFoundException e)
+   {
+    System.err.println("Can't open output file '" + outfile.getAbsolutePath() + "': " + e.getMessage());
+    System.exit(1);
+   }
+   catch(UnsupportedEncodingException e)
+   {
+    System.err.println("System doesn't support UTF-8 encoding");
+    System.exit(1);
+   }
   }
-  catch(FileNotFoundException e)
+  else
   {
-   System.err.println("Can't open output file '"+outfile.getAbsolutePath()+"': "+e.getMessage());
-   System.exit(1);
-  }
-  catch(UnsupportedEncodingException e)
-  {
-   System.err.println("System doesn't support UTF-8 encoding");
-   System.exit(1);
+   if( "-".equals(config.getFiles().get(1)) )
+   {
+    System.err.println("Stdout can't be used for "+fmt.name()+" format");
+    System.exit(1);
+   }
   }
   
-  Formatter outfmt = null;
+  DocumentFormatter outfmt = null;
   
   if( fmt == DataFormat.xml )
-   outfmt = new PageMLFormatter();
+   outfmt = new PageMLFormatter(out);
   else if( fmt == DataFormat.json )
-   outfmt = new JSONFormatter();
+   outfmt = new JSONFormatter(out);
+  else if( fmt == DataFormat.csv )
+   outfmt = new CellFormatter( XSVCellStream.getCSVCellStream(out) );
+  else if( fmt == DataFormat.tsv )
+   outfmt = new CellFormatter( XSVCellStream.getTSVCellStream(out) );
+  else if( fmt == DataFormat.xlsx )
+   outfmt = new CellFormatter( new XLSXCellStream(outfile) );
   
   
   try
   {
-   outfmt.header(doc.getHeaders(), out);
-   
-   boolean first = true;
-   
-   for( SubmissionInfo ps : doc.getSubmissions() )
-   {
-    if( ! first )
-     outfmt.separator(out);
-    else
-     first = false;
-    
-    outfmt.format(ps.getSubmission(),out);
-   }
-   
-   outfmt.footer(out);
+   outfmt.format(doc);
   }
   catch(IOException e)
   {
@@ -300,7 +325,8 @@ public class Main
    System.exit(1);
   }
   
-  out.close();
+  if( out != null )
+   out.close();
  }
  
  static void usage()
