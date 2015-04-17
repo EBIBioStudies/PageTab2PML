@@ -146,7 +146,7 @@ public class Main
     doc = ODSParse.parse(infile, topLn);
    else if("json".equals(inputFormat))
     doc = JSONParse.parse(infile, config.getCharset(), topLn);
-   else if("cvs".equals(inputFormat))
+   else if("csv".equals(inputFormat))
     doc = CVSTVSParse.parse(infile, config.getCharset(), ',', topLn);
    else if("tsv".equals(inputFormat))
     doc = CVSTVSParse.parse(infile, config.getCharset(), '\t', topLn);
@@ -333,11 +333,13 @@ public class Main
  {
   System.err.println("Usage: java -jar PT2PML [-h] [-i in fmt] [-o out fmt] [-d] [-l logfile] <input file> <output file>");
   System.err.println("-h or --help print this help message");
-  System.err.println("-i or --inputFormat input file format. Can be json or tab");
-  System.err.println("-o or --outputFormat output file format. Can be json or xml");
+  System.err.println("-i or --inputFormat input file format. Can be json, xls, xlsx, ods, tsv, csv or auto (by file extension). Default is auto");
+  System.err.println("-o or --outputFormat output file format. Can be json, xml, csv, tsv, xlsx. Default is xml");
   System.err.println("-d or --printInfoNodes print info messages along with errors and warnings");
-  System.err.println("-l or --logFile defines log file. By default stdout");
-  System.err.println("<input file> PagaTab input file. Supported UCS-2 (UTF-16), UTF-8 CSV or TSV or MS Excel XML files");
-  System.err.println("<output file> XML output file. '-' means output to stdout");
+  System.err.println("-l or --logFile defines log file. Default is stdout");
+  System.err.println("-g or --genAcc generates accession numbers where it's necessary");
+  System.err.println("-c or --charset input file charset (only for text files). Default utf-8");
+  System.err.println("<input file> PagaTab input file. Supported UCS-2 (UTF-16), UTF-8 CSV or TSV , MS Excel files, Open Document spreadsheets (ODS)");
+  System.err.println("<output file> Output file. '-' means output to stdout (not suitable for xls/ods)");
  }
 }
